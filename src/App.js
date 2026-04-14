@@ -8,9 +8,9 @@ const LANE_SPACING = 2.5;
 const LANE_POSITIONS = [-(LANE_SPACING), 0, LANE_SPACING];
 
 const DIFFICULTY = {
-  beginner: { speed: 0.05, speedInc: 0.000025, spawnInt: 110, fishInt: 48, coinInt: 70 },
-  intermediate: { speed: 0.09, speedInc: 0.00005, spawnInt: 80, fishInt: 40, coinInt: 58 },
-  expert: { speed: 0.13, speedInc: 0.0001, spawnInt: 55, fishInt: 32, coinInt: 45 },
+  beginner: { speed: 0.05, speedInc: 0.000025, maxSpeed: 0.08, spawnInt: 110, fishInt: 48, coinInt: 70 },
+  intermediate: { speed: 0.09, speedInc: 0.00005, maxSpeed: 0.15, spawnInt: 80, fishInt: 40, coinInt: 58 },
+  expert: { speed: 0.13, speedInc: 0.0001, maxSpeed: 0.25, spawnInt: 55, fishInt: 32, coinInt: 45 },
 };
 
 const COMBO_THRESHOLDS = [0, 3, 6, 10, 15];
@@ -29,13 +29,14 @@ const loadUsername = async () => {
 const saveUsername = async (name) => {
   try { localStorage.setItem("shark-run-username", name); } catch (e) { console.error(e); }
 };
-const saveScore = async (username, scoreData) => {
+const saveScore = async (username, scoreData, difficulty) => {
   try {
-    const key = `shark-lb:${username}`;
+    const key = `shark-lb:${username}:${difficulty}`;
     const existingRaw = localStorage.getItem(key);
-    const prev = existingRaw ? JSON.parse(existingRaw) : { username, bestScore: 0, bestFish: 0, bestStreak: 0, bestCoins: 0 };
+    const prev = existingRaw ? JSON.parse(existingRaw) : { username, difficulty, bestScore: 0, bestFish: 0, bestStreak: 0, bestCoins: 0 };
     const updated = {
       username,
+      difficulty,
       bestScore: Math.max(prev.bestScore, scoreData.score),
       bestFish: Math.max(prev.bestFish, scoreData.fish),
       bestStreak: Math.max(prev.bestStreak, scoreData.streak),
@@ -43,23 +44,23 @@ const saveScore = async (username, scoreData) => {
       lastPlayed: Date.now(),
     };
     localStorage.setItem(key, JSON.stringify(updated));
-    // Track all usernames in a master list
-    const usersRaw = localStorage.getItem("shark-lb-users");
-    const users = usersRaw ? JSON.parse(usersRaw) : [];
-    if (!users.includes(username)) { users.push(username); localStorage.setItem("shark-lb-users", JSON.stringify(users)); }
+    // Track all entry keys in a master list
+    const keysRaw = localStorage.getItem("shark-lb-keys");
+    const keys = keysRaw ? JSON.parse(keysRaw) : [];
+    if (!keys.includes(key)) { keys.push(key); localStorage.setItem("shark-lb-keys", JSON.stringify(keys)); }
   } catch (e) { console.error(e); }
 };
 const loadLeaderboard = async () => {
   try {
-    const usersRaw = localStorage.getItem("shark-lb-users");
-    if (!usersRaw) return [];
-    const users = JSON.parse(usersRaw);
+    const keysRaw = localStorage.getItem("shark-lb-keys");
+    if (!keysRaw) return [];
+    const keys = JSON.parse(keysRaw);
     const entries = [];
-    for (const user of users) {
-      const raw = localStorage.getItem(`shark-lb:${user}`);
+    for (const key of keys) {
+      const raw = localStorage.getItem(key);
       if (raw) entries.push(JSON.parse(raw));
     }
-    return entries.sort((a, b) => b.bestScore - a.bestScore).slice(0, 10);
+    return entries.sort((a, b) => b.bestScore - a.bestScore).slice(0, 15);
   } catch { return []; }
 };
 
@@ -94,7 +95,8 @@ export default function SharkRun() {
   }, []);
 
   const handleShare = async () => {
-    const text = `🦈 SHARK RUN 🦈\nDistance: ${score} | Fish: ${fishEaten} | Streak: ${maxCombo} | Coins: ${coins}\nCan you beat my score?\n\nPlay here: https://shark-run.vercel.app/`;
+    const diffNames = { beginner: "SHALLOW", intermediate: "DEEP", expert: "ABYSS" };
+    const text = `🦈 SHARK RUN 🦈\nLevel: ${diffNames[lastDifficulty] || "?"} | Distance: ${score} | Fish: ${fishEaten} | Streak: ${maxCombo} | Coins: ${coins}\nCan you beat my score?\n\nPlay here: https://shark-run.vercel.app/`;
     if (navigator.share) {
       try {
         await navigator.share({ title: "Shark Run - My Score", text, url: "https://shark-run.vercel.app/" });
@@ -118,7 +120,7 @@ export default function SharkRun() {
     if (!name) return;
     setUsername(name);
     await saveUsername(name);
-    await saveScore(name, { score, fish: fishEaten, streak: maxCombo, coins });
+    await saveScore(name, { score, fish: fishEaten, streak: maxCombo, coins }, lastDifficulty);
     setScoreSaved(true);
   };
 
@@ -302,7 +304,7 @@ export default function SharkRun() {
     const s = DIFFICULTY[diff];
     gameRef.current = {
       runnerLane:1, targetLane:1, obstacles:[], fishes:[], coins:[], particles:[], trailMeshes:[],
-      frameCount:0, speed:s.speed, speedInc:s.speedInc,
+      frameCount:0, speed:s.speed, speedInc:s.speedInc, maxSpeed:s.maxSpeed,
       spawnInt:s.spawnInt, fishInt:s.fishInt, coinInt:s.coinInt,
       score:0, fishCount:0, coinCount:0, lives:3, combo:0, maxCombo:0, multiplier:1, invincible:0, difficulty:diff, runnerMesh:null,
     };
@@ -359,7 +361,7 @@ export default function SharkRun() {
       }
       g.trailMeshes = g.trailMeshes.filter((t) => { t.userData.life--; t.material.opacity=(t.userData.life/22)*0.35; t.position.z+=0.015; t.position.y+=0.008; t.scale.multiplyScalar(0.96); if(t.userData.life<=0){scene.remove(t);return false;} return true; });
 
-      g.speed += g.speedInc; g.score += 1;
+      if (g.speed < g.maxSpeed) g.speed += g.speedInc; g.score += 1;
 
       if (g.frameCount%g.spawnInt===0) { const ln=Math.floor(Math.random()*LANE_COUNT); const m=createCoralObstacle(); m.position.set(LANE_POSITIONS[ln],-0.5,-30); scene.add(m); g.obstacles.push({lane:ln,mesh:m,nearMissed:false}); }
       if (g.frameCount%g.fishInt===0) { const ln=Math.floor(Math.random()*LANE_COUNT); if(!g.obstacles.some(o=>o.lane===ln&&o.mesh.position.z>-33&&o.mesh.position.z<-27)){const ci=Math.floor(Math.random()*FISH_COLORS_HEX.length);const m=createSmallFish(FISH_COLORS_HEX[ci]);m.position.set(LANE_POSITIONS[ln],0,-30);scene.add(m);g.fishes.push({lane:ln,mesh:m,missed:false,missProcessed:false});}}
@@ -516,30 +518,37 @@ export default function SharkRun() {
               <div style={{width:"90%",marginTop:"8px"}}>
                 {/* Header */}
                 <div style={{display:"flex",padding:"6px 8px",borderBottom:"1px solid rgba(100,180,255,0.15)",marginBottom:"4px"}}>
-                  <div style={{width:"25px",color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>#</div>
+                  <div style={{width:"22px",color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>#</div>
                   <div style={{flex:1,color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>PLAYER</div>
-                  <div style={{width:"55px",textAlign:"right",color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>DIST</div>
-                  <div style={{width:"45px",textAlign:"right",color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>FISH</div>
-                  <div style={{width:"50px",textAlign:"right",color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>STREAK</div>
+                  <div style={{width:"50px",textAlign:"center",color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>LEVEL</div>
+                  <div style={{width:"48px",textAlign:"right",color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>DIST</div>
+                  <div style={{width:"38px",textAlign:"right",color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>FISH</div>
+                  <div style={{width:"42px",textAlign:"right",color:"rgba(255,255,255,0.3)",fontSize:"9px"}}>STRK</div>
                 </div>
                 {leaderboard.map((entry, idx) => {
-                  const isMe = entry.username === username;
+                  const isMe = entry.username === username && entry.difficulty === lastDifficulty;
                   const medalColors = ["#ffd700", "#c0c0c0", "#cd7f32"];
+                  const diffColors = { beginner: "#44cc88", intermediate: "#ffaa44", expert: "#ff5566" };
+                  const diffLabels = { beginner: "SHLW", intermediate: "DEEP", expert: "ABYS" };
+                  const dc = diffColors[entry.difficulty] || "#888";
                   return (
                     <div key={idx} style={{
-                      display:"flex", padding:"6px 8px", alignItems:"center",
+                      display:"flex", padding:"5px 6px", alignItems:"center",
                       background: isMe ? "rgba(0,200,255,0.08)" : "transparent",
                       borderRadius:"4px", borderLeft: isMe ? "2px solid #44aacc" : "2px solid transparent",
                     }}>
-                      <div style={{width:"25px",color:idx<3?medalColors[idx]:"rgba(255,255,255,0.35)",fontSize:"12px",fontWeight:idx<3?"bold":"normal"}}>
+                      <div style={{width:"22px",color:idx<3?medalColors[idx]:"rgba(255,255,255,0.35)",fontSize:"11px",fontWeight:idx<3?"bold":"normal"}}>
                         {idx<3?["🥇","🥈","🥉"][idx]:`${idx+1}`}
                       </div>
-                      <div style={{flex:1,color:isMe?"#88ccee":"rgba(255,255,255,0.7)",fontSize:"12px",fontWeight:isMe?"bold":"normal",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                      <div style={{flex:1,color:isMe?"#88ccee":"rgba(255,255,255,0.7)",fontSize:"11px",fontWeight:isMe?"bold":"normal",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                         {entry.username}{isMe?" (you)":""}
                       </div>
-                      <div style={{width:"55px",textAlign:"right",color:"#88ccee",fontSize:"12px",fontFamily:"monospace"}}>{entry.bestScore}</div>
-                      <div style={{width:"45px",textAlign:"right",color:"#66ffcc",fontSize:"12px",fontFamily:"monospace"}}>{entry.bestFish}</div>
-                      <div style={{width:"50px",textAlign:"right",color:gCSS(entry.bestStreak),fontSize:"12px",fontFamily:"monospace"}}>{entry.bestStreak}</div>
+                      <div style={{width:"50px",textAlign:"center"}}>
+                        <span style={{background:dc,color:"#000",fontSize:"8px",fontWeight:"bold",padding:"2px 5px",borderRadius:"3px",letterSpacing:"0.5px"}}>{diffLabels[entry.difficulty] || "?"}</span>
+                      </div>
+                      <div style={{width:"48px",textAlign:"right",color:"#88ccee",fontSize:"11px",fontFamily:"monospace"}}>{entry.bestScore}</div>
+                      <div style={{width:"38px",textAlign:"right",color:"#66ffcc",fontSize:"11px",fontFamily:"monospace"}}>{entry.bestFish}</div>
+                      <div style={{width:"42px",textAlign:"right",color:gCSS(entry.bestStreak),fontSize:"11px",fontFamily:"monospace"}}>{entry.bestStreak}</div>
                     </div>
                   );
                 })}
