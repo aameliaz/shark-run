@@ -96,17 +96,17 @@ export default function SharkRun() {
 
   const handleShare = async () => {
     const diffNames = { beginner: "SHALLOW", intermediate: "DEEP", expert: "ABYSS" };
-    const text = `🦈 SHARK RUN 🦈\nLevel: ${diffNames[lastDifficulty] || "?"} | Distance: ${score} | Fish: ${fishEaten} | Streak: ${maxCombo} | Coins: ${coins}\nCan you beat my score?\n\nPlay here: https://shark-run.vercel.app/`;
+    const msg = `🦈 SHARK RUN 🦈\nLevel: ${diffNames[lastDifficulty] || "?"} | Distance: ${score} | Fish: ${fishEaten} | Streak: ${maxCombo} | Coins: ${coins}\nCan you beat my score?`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Shark Run - My Score", text, url: "https://shark-run.vercel.app/" });
+        await navigator.share({ title: "Shark Run - My Score", text: msg, url: "https://shark-run.vercel.app/" });
         setShareMsg("Shared!");
       } catch (e) {
         if (e.name !== "AbortError") setShareMsg("Couldn't share");
       }
     } else {
       try {
-        await navigator.clipboard.writeText(text);
+        await navigator.clipboard.writeText(msg + "\n\nPlay here: https://shark-run.vercel.app/");
         setShareMsg("Copied to clipboard!");
       } catch {
         setShareMsg("Couldn't copy");
@@ -379,7 +379,7 @@ export default function SharkRun() {
       const rX=shark.position.x, rZ=shark.position.z;
       g.fishes=g.fishes.filter(f=>{if(f.missed)return true;if(Math.sqrt((rX-f.mesh.position.x)**2+(rZ-f.mesh.position.z)**2)<1.4){g.particles.push(...createParticleBurst(scene,f.mesh.position,f.mesh.children[0]?.material?.color?.getHex()||0x66ffcc,8));scene.remove(f.mesh);g.fishCount++;g.combo++;if(g.combo>g.maxCombo)g.maxCombo=g.combo;const nm=getMultiplier(g.combo);if(nm>g.multiplier)setMultiplierFlash(50);g.multiplier=nm;setFishEaten(g.fishCount);setCombo(g.combo);setMultiplier(g.multiplier);setMaxCombo(g.maxCombo);return false;}return true;});
       g.coins=g.coins.filter(c=>{if(Math.sqrt((rX-c.mesh.position.x)**2+(rZ-c.mesh.position.z)**2)<1.3){g.particles.push(...createParticleBurst(scene,c.mesh.position,0xffd700,6));scene.remove(c.mesh);g.coinCount+=g.multiplier;setCoins(g.coinCount);return false;}return true;});
-      g.obstacles.forEach(o=>{if(o.nearMissed)return;if(Math.abs(o.mesh.position.z-rZ)<1.0&&Math.abs(o.lane-g.targetLane)===1){o.nearMissed=true;g.combo++;if(g.combo>g.maxCombo)g.maxCombo=g.combo;const nm=getMultiplier(g.combo);if(nm>g.multiplier)setMultiplierFlash(50);g.multiplier=nm;g.score+=5;setCombo(g.combo);setMultiplier(g.multiplier);setMaxCombo(g.maxCombo);}});
+      g.obstacles.forEach(o=>{if(o.nearMissed)return;if(Math.abs(o.mesh.position.z-rZ)<1.0&&Math.abs(o.lane-g.targetLane)===1){o.nearMissed=true;g.score+=5;}});
       if(g.invincible<=0){for(const o of g.obstacles){if(Math.abs(o.mesh.position.z-rZ)<0.9&&Math.abs(LANE_POSITIONS[o.lane]-rX)<1.0){g.lives--;g.combo=0;g.multiplier=1;g.particles.push(...createParticleBurst(scene,shark.position,0xff4466,15));setLives(g.lives);setCombo(0);setMultiplier(1);if(g.lives<=0){setScore(g.score);setFishEaten(g.fishCount);setCoins(g.coinCount);setHighScore(p=>Math.max(p,g.score));setHighCoins(p=>Math.max(p,g.coinCount));setMaxCombo(g.maxCombo);setCanRevive(g.coinCount>=REVIVE_COST);setGameState("gameover");return;}else{g.invincible=90;scene.remove(o.mesh);g.obstacles=g.obstacles.filter(ob=>ob!==o);break;}}}}
 
       setScore(g.score);
