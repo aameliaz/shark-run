@@ -81,6 +81,7 @@ export default function SharkRun() {
   const [leaderboardLoading, setLeaderboardLoading] = useState(false);
   const [scoreSaved, setScoreSaved] = useState(false);
   const [shareMsg, setShareMsg] = useState("");
+  const [lastDifficulty, setLastDifficulty] = useState("beginner");
   const mountRef = useRef(null);
   const frameRef = useRef(null);
   const gameRef = useRef(null);
@@ -91,10 +92,10 @@ export default function SharkRun() {
   }, []);
 
   const handleShare = async () => {
-    const text = `🦈 SHARK RUN 🦈\nDistance: ${score} | Fish: ${fishEaten} | Streak: ${maxCombo} | Coins: ${coins}\nCan you beat my score?`;
+    const text = `🦈 SHARK RUN 🦈\nDistance: ${score} | Fish: ${fishEaten} | Streak: ${maxCombo} | Coins: ${coins}\nCan you beat my score?\n\nPlay here: https://shark-run.vercel.app/`;
     if (navigator.share) {
       try {
-        await navigator.share({ title: "Shark Run - My Score", text });
+        await navigator.share({ title: "Shark Run - My Score", text, url: "https://shark-run.vercel.app/" });
         setShareMsg("Shared!");
       } catch (e) {
         if (e.name !== "AbortError") setShareMsg("Couldn't share");
@@ -226,21 +227,21 @@ export default function SharkRun() {
 
   const initScene = useCallback(() => {
     const scene = new THREE.Scene();
-    scene.fog = new THREE.FogExp2(0x0a2040, 0.028);
+    scene.fog = new THREE.FogExp2(0x1a4060, 0.02);
     const camera = new THREE.PerspectiveCamera(45, GAME_WIDTH/GAME_HEIGHT, 0.1, 100);
     camera.position.set(0, 14, 10); camera.lookAt(0, 0, -3);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(GAME_WIDTH, GAME_HEIGHT);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x082040);
+    renderer.setClearColor(0x1a4065);
 
-    scene.add(new THREE.AmbientLight(0x6699bb, 0.9));
-    const sun = new THREE.DirectionalLight(0xaaddff, 1.0); sun.position.set(3, 20, 5); scene.add(sun);
-    scene.add(new THREE.DirectionalLight(0x88aacc, 0.4).translateX(0).translateY(5).translateZ(15));
-    scene.add(new THREE.DirectionalLight(0x2266aa, 0.3).translateY(-3));
-    const rl = new THREE.PointLight(0x4488aa, 0.5, 15); rl.position.set(0, 5, 4); scene.add(rl);
+    scene.add(new THREE.AmbientLight(0x88bbdd, 1.3));
+    const sun = new THREE.DirectionalLight(0xccddff, 1.3); sun.position.set(3, 20, 5); scene.add(sun);
+    scene.add(new THREE.DirectionalLight(0x99bbdd, 0.6).translateX(0).translateY(5).translateZ(15));
+    scene.add(new THREE.DirectionalLight(0x4488bb, 0.4).translateY(-3));
+    const rl = new THREE.PointLight(0x66aacc, 0.6, 15); rl.position.set(0, 5, 4); scene.add(rl);
 
-    const rayMat = new THREE.MeshBasicMaterial({ color: 0xaaddff, transparent: true, opacity: 0.025, side: THREE.DoubleSide });
+    const rayMat = new THREE.MeshBasicMaterial({ color: 0xccddff, transparent: true, opacity: 0.04, side: THREE.DoubleSide });
     for (let i = 0; i < 6; i++) {
       const ray = new THREE.Mesh(new THREE.PlaneGeometry(0.25+Math.random()*0.5, 35), rayMat.clone());
       ray.position.set((Math.random()-0.5)*12, 6, -8+Math.random()*-15);
@@ -252,11 +253,11 @@ export default function SharkRun() {
     const floorGeo = new THREE.PlaneGeometry(30, 80, 20, 40);
     const fp = floorGeo.attributes.position;
     for (let i = 0; i < fp.count; i++) fp.setZ(i, Math.sin(fp.getX(i)*0.4)*Math.cos(fp.getY(i)*0.3)*0.15+(Math.random()-0.5)*0.08);
-    const floor = new THREE.Mesh(floorGeo, new THREE.MeshPhongMaterial({ color: 0x1a3855, emissive: 0x0d2240, emissiveIntensity: 0.3, shininess: 8, flatShading: true }));
+    const floor = new THREE.Mesh(floorGeo, new THREE.MeshPhongMaterial({ color: 0x2a5070, emissive: 0x1a3855, emissiveIntensity: 0.25, shininess: 10, flatShading: true }));
     floor.rotation.x = -Math.PI/2; floor.position.set(0, -2.2, -15); scene.add(floor);
 
     for (let i = 0; i < 10; i++) {
-      const s = new THREE.Mesh(new THREE.CircleGeometry(0.5+Math.random()*1.2, 8), new THREE.MeshPhongMaterial({ color: 0x2a4466, emissive: 0x1a3355, emissiveIntensity: 0.2 }));
+      const s = new THREE.Mesh(new THREE.CircleGeometry(0.5+Math.random()*1.2, 8), new THREE.MeshPhongMaterial({ color: 0x3a5577, emissive: 0x2a4466, emissiveIntensity: 0.2 }));
       s.rotation.x = -Math.PI/2; s.position.set((Math.random()-0.5)*14, -2.15, Math.random()*-30-3); scene.add(s);
     }
 
@@ -280,7 +281,7 @@ export default function SharkRun() {
 
     for (let i = 0; i < LANE_COUNT+1; i++) {
       const x = (i-LANE_COUNT/2)*LANE_SPACING;
-      const l = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.01, 50), new THREE.MeshBasicMaterial({ color: 0x2a5577, transparent: true, opacity: 0.25 }));
+      const l = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.01, 50), new THREE.MeshBasicMaterial({ color: 0x3a6688, transparent: true, opacity: 0.3 }));
       l.position.set(x, -2.1, -10); scene.add(l);
     }
 
@@ -308,7 +309,7 @@ export default function SharkRun() {
     setCanRevive(false); setMultiplierFlash(0); setScoreSaved(false); setShowLeaderboard(false); setShareMsg("");
   }, []);
 
-  const startGame = useCallback((diff) => { resetGame(diff); setGameState("playing"); }, [resetGame]);
+  const startGame = useCallback((diff) => { setLastDifficulty(diff); resetGame(diff); setGameState("playing"); }, [resetGame]);
 
   const revive = useCallback(() => {
     const g = gameRef.current;
@@ -406,8 +407,8 @@ export default function SharkRun() {
   );
 
   return (
-    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#040e1a",fontFamily:"monospace"}}>
-      <div style={{position:"relative",width:GAME_WIDTH,height:GAME_HEIGHT,border:"2px solid rgba(100,180,255,0.12)",borderRadius:"12px",overflow:"hidden",background:"#082040"}}>
+    <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"#0a1a2e",fontFamily:"monospace"}}>
+      <div style={{position:"relative",width:GAME_WIDTH,height:GAME_HEIGHT,border:"2px solid rgba(100,180,255,0.15)",borderRadius:"12px",overflow:"hidden",background:"#1a4065"}}>
         <div ref={mountRef} style={{width:"100%",height:"100%"}} />
 
         {gameState==="playing" && (
@@ -492,7 +493,7 @@ export default function SharkRun() {
               </button>
             )}
 
-            <div style={{color:"rgba(100,180,255,0.35)",fontSize:"9px",letterSpacing:"2px",marginTop:"2px"}}>{canRevive?"OR DIVE AGAIN":"DIVE AGAIN"}</div>
+            <button onClick={()=>startGame(lastDifficulty)} style={{background:"rgba(100,180,255,0.1)",color:"#88ccee",border:"1px solid rgba(100,180,255,0.3)",padding:"8px 20px",borderRadius:"6px",fontSize:"11px",fontFamily:"monospace",fontWeight:"bold",cursor:"pointer",letterSpacing:"2px",marginTop:"2px"}}>{canRevive?"OR DIVE AGAIN":"DIVE AGAIN"}</button>
             <div style={{display:"flex",gap:"6px"}}>
               <Btn diff="beginner" label="SHALLOW" desc="Easy" small />
               <Btn diff="expert" label="ABYSS" desc="Hard" small />
