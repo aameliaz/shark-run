@@ -22,19 +22,18 @@ const REVIVE_COST = 8;
 const getComboColorHex = (c) => { for (let i = COMBO_THRESHOLDS.length-1; i >= 0; i--) { if (c >= COMBO_THRESHOLDS[i]) return COMBO_COLORS_HEX[i]; } return COMBO_COLORS_HEX[0]; };
 const getMultiplier = (c) => { if (c >= 15) return 5; if (c >= 10) return 4; if (c >= 6) return 3; if (c >= 3) return 2; return 1; };
 
-// Storage helpers
+// Storage helpers using localStorage (works on deployed sites)
 const loadUsername = async () => {
-  try { const r = await window.storage.get("shark-run-username"); return r?.value || ""; } catch { return ""; }
+  try { return localStorage.getItem("shark-run-username") || ""; } catch { return ""; }
 };
 const saveUsername = async (name) => {
-  try { await window.storage.set("shark-run-username", name); } catch (e) { console.error(e); }
+  try { localStorage.setItem("shark-run-username", name); } catch (e) { console.error(e); }
 };
 const saveScore = async (username, scoreData) => {
   try {
     const key = `shark-lb:${username}`;
-    let existing;
-    try { existing = await window.storage.get(key, true); } catch { existing = null; }
-    const prev = existing ? JSON.parse(existing.value) : { username, bestScore: 0, bestFish: 0, bestStreak: 0, bestCoins: 0 };
+    const existingRaw = localStorage.getItem(key);
+    const prev = existingRaw ? JSON.parse(existingRaw) : { username, bestScore: 0, bestFish: 0, bestStreak: 0, bestCoins: 0 };
     const updated = {
       username,
       bestScore: Math.max(prev.bestScore, scoreData.score),
@@ -43,19 +42,22 @@ const saveScore = async (username, scoreData) => {
       bestCoins: Math.max(prev.bestCoins, scoreData.coins),
       lastPlayed: Date.now(),
     };
-    await window.storage.set(key, JSON.stringify(updated), true);
+    localStorage.setItem(key, JSON.stringify(updated));
+    // Track all usernames in a master list
+    const usersRaw = localStorage.getItem("shark-lb-users");
+    const users = usersRaw ? JSON.parse(usersRaw) : [];
+    if (!users.includes(username)) { users.push(username); localStorage.setItem("shark-lb-users", JSON.stringify(users)); }
   } catch (e) { console.error(e); }
 };
 const loadLeaderboard = async () => {
   try {
-    const keys = await window.storage.list("shark-lb:", true);
-    if (!keys?.keys?.length) return [];
+    const usersRaw = localStorage.getItem("shark-lb-users");
+    if (!usersRaw) return [];
+    const users = JSON.parse(usersRaw);
     const entries = [];
-    for (const key of keys.keys.slice(0, 20)) {
-      try {
-        const r = await window.storage.get(key, true);
-        if (r?.value) entries.push(JSON.parse(r.value));
-      } catch { /* skip */ }
+    for (const user of users) {
+      const raw = localStorage.getItem(`shark-lb:${user}`);
+      if (raw) entries.push(JSON.parse(raw));
     }
     return entries.sort((a, b) => b.bestScore - a.bestScore).slice(0, 10);
   } catch { return []; }
