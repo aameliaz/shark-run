@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars, react-hooks/exhaustive-deps */
 import { useState, useEffect, useRef, useCallback } from "react";
 
 const W = 360, H = 640;
@@ -103,22 +104,6 @@ export default function SharkRunPainterly() {
 
   const getLaneX = (l) => l * LANE_W + LANE_W / 2;
   const getStreakColor = (c) => { for (let i = COMBO_TH.length - 1; i >= 0; i--) { if (c >= COMBO_TH[i]) return P.streak[i]; } return P.streak[0]; };
-
-  // Painterly brush stroke helper
-  const brushRect = (ctx, x, y, w, h, color, alpha = 1) => {
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = color;
-    // Main shape with soft edges
-    ctx.beginPath();
-    ctx.moveTo(x + 2, y);
-    ctx.quadraticCurveTo(x + w / 2, y - 1.5, x + w - 2, y);
-    ctx.quadraticCurveTo(x + w + 1, y + h / 2, x + w - 2, y + h);
-    ctx.quadraticCurveTo(x + w / 2, y + h + 1.5, x + 2, y + h);
-    ctx.quadraticCurveTo(x - 1, y + h / 2, x + 2, y);
-    ctx.fill();
-    ctx.restore();
-  };
 
   // Soft circle
   const softCircle = (ctx, x, y, r, color, alpha = 1) => {
